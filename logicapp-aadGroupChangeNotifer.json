@@ -1,0 +1,179 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "actions": {
+            "Condition": {
+                "actions": {
+                    "HTTP_1": {
+                        "description": "sends email",
+                        "inputs": {
+                            "authentication": {
+                                "audience": "https://graph.microsoft.com",
+                                "type": "ManagedServiceIdentity"
+                            },
+                            "body": "@variables('emailbody')",
+                            "headers": {
+                                "Content-type": "application/json"
+                            },
+                            "method": "POST",
+                            "uri": "https://graph.microsoft.com/v1.0/users/[app reg guid]/sendMail"
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        },
+                        "type": "Http"
+                    }
+                },
+                "description": "send email if trigger condition is a member add event\n",
+                "else": {
+                    "actions": {}
+                },
+                "expression": {
+                    "and": [
+                        {
+                            "not": {
+                                "equals": [
+                                    "@triggerBody()?['@removed']?['reason']",
+                                    "deleted"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Set_variable": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "type": "If"
+            },
+            "Get_blob_content_(V2)": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "referenceName": "azureblob-3"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('rgl3functionsprod95ac'))}/files/@{encodeURIComponent(encodeURIComponent('JTJmZW1haWxpbWFnZXMlMmZNYW5kaWFudC1Hb29nbGUrTG9nby5wbmc='))}/content",
+                    "queries": {
+                        "inferContentType": true
+                    }
+                },
+                "metadata": {
+                    "JTJmZW1haWxpbWFnZXMlMmZNYW5kaWFudC1Hb29nbGUrTG9nby5wbmc=": "/emailimages/[email logo].png"
+                },
+                "runAfter": {
+                    "Initialize_variable_1": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "type": "ApiConnection"
+            },
+            "HTTP": {
+                "description": "collects user information",
+                "inputs": {
+                    "authentication": {
+                        "audience": "https://graph.microsoft.com",
+                        "type": "ManagedServiceIdentity"
+                    },
+                    "method": "GET",
+                    "uri": "https://graph.microsoft.com/v1.0/users/@{triggerBody()?['id']}"
+                },
+                "runAfter": {
+                    "Set_variable_1": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                },
+                "type": "Http"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "emailbody",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {},
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_1": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "contactemail",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Set_variable": {
+                "description": "builds payload for sendmail http operation",
+                "inputs": {
+                    "name": "emailbody",
+                    "value": "{\n  \"message\": {\n    \"subject\": \"[subject]\",\n    \"body\": {\n      \"contentType\": \"HTML\",\n      \"content\": \"<html>\n<head>\n  <title>[Title]</title>\n</head>\n<body>\n  <table width='560' style='background-color: #eeeeee;' align='center'>\n    <tr>\n      <td>\n        <table width='560' align='center' style='background-color: #ffffff;'>\n          <tr>\n            <td width='560' align='center' valign='middle'>\n              <img border='0' style='max-height:100%; max-width:100%' src='cid:logo123' title='Mandiant Logo' id='logo'>\n            </td>\n          </tr>\n          <tr>\n            <td width='560' align='center' valign='middle' bgcolor='#E0E2E4' style='border-width: 1px; border-style: solid; border-color: rgb(191, 192, 194);'>\n              <b><span style='font-size: 20px;color: #333333;'>Request to Join SentinelOne Tenant</span></b>\n            </td>\n          </tr>\n          <tr>\n            <td width='560'>\n              <p>@{body('HTTP')?['userPrincipalName']} [enter message here]</p>\n            </td>\n          </tr>\n          <tr>\n            <td width='560' align='center' valign='middle' bgcolor='#E0E2E4' style='border-width: 1px; border-style: solid; border-color: rgb(191, 192, 194);'>\n              <p>Please do not reply to this email. If you have any questions regarding this email or otherwise, please contact your Engagement Manager or Account Representative.</p>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>\"\n    },\n    \"toRecipients\": [\n      {\n        \"emailAddress\": {\n          \"address\": \"@{variables('contactemail')}\"\n        }\n      }\n    ],\n \"attachments\": [\n      {\n        \"@odata.type\": \"#microsoft.graph.fileAttachment\",\n        \"name\": \"Mandiant-Google Logo.png\",\n\"contentId\":\"logo123\",\n\"isInline\": \"true\",\n        \"contentType\": \"@{body('Get_blob_content_(V2)')?['$content-type']}\",\n        \"contentBytes\": \"@{body('Get_blob_content_(V2)')?['$content']}\"\n      }\n    ]\n  }\n}"
+                },
+                "runAfter": {
+                    "HTTP": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "type": "SetVariable"
+            },
+            "Set_variable_1": {
+                "description": "customer email contact email address",
+                "inputs": {
+                    "name": "contactemail",
+                    "value": "mike.burns7@gmail.com"
+                },
+                "runAfter": {
+                    "Get_blob_content_(V2)": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "type": "SetVariable"
+            }
+        },
+        "contentVersion": "1.0.0.0",
+        "outputs": {},
+        "triggers": {
+            "When_a_group_member_is_added_or_removed": {
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "referenceName": "office365groups-2"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/trigger/v1.0/groups/delta",
+                    "queries": {
+                        "$select": "members",
+                        "groupId": "[group guid]"
+                    }
+                },
+                "recurrence": {
+                    "frequency": "Minute",
+                    "interval": 3
+                },
+                "splitOn": "@triggerBody()",
+                "type": "ApiConnection"
+            }
+        }
+    },
+    "kind": "Stateful"
+}
